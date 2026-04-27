@@ -2,7 +2,7 @@ import "./globals.css";
 import React from "react";
 
 export const metadata = {
-    title: "Human Evaluation App",
+    title: "Prediction Review Studio",
     description: "MVP annotation app for multimodal prediction verification"
 };
 

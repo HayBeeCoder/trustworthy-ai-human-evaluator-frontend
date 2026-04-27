@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type Stats = {
     targetSampleSize: number;
@@ -14,15 +15,33 @@ type Stats = {
 export default function AdminPage() {
     const POLL_INTERVAL_MS = 10000;
     const [stats, setStats] = useState<Stats | null>(null);
+    const [authState, setAuthState] = useState<"checking" | "locked" | "unlocked">("checking");
+    const [passcode, setPasscode] = useState("");
+    const [isUnlocking, setIsUnlocking] = useState(false);
     const [target, setTarget] = useState(120);
     const [targetInitialized, setTargetInitialized] = useState(false);
     const [isEditingTarget, setIsEditingTarget] = useState(false);
     const [isSavingTarget, setIsSavingTarget] = useState(false);
     const [message, setMessage] = useState("");
 
+    async function checkAuth() {
+        const res = await fetch("/api/admin/auth", { cache: "no-store" });
+        if (res.ok) {
+            setAuthState("unlocked");
+            return true;
+        }
+        setAuthState("locked");
+        return false;
+    }
+
     async function fetchStats() {
         const res = await fetch("/api/admin/stats", { cache: "no-store" });
         if (!res.ok) {
+            if (res.status === 401) {
+                setAuthState("locked");
+                setMessage("Enter admin passcode to view dashboard.");
+                return;
+            }
             setMessage("Failed to fetch live stats.");
             return;
         }
@@ -35,6 +54,14 @@ export default function AdminPage() {
     }
 
     useEffect(() => {
+        checkAuth();
+    }, []);
+
+    useEffect(() => {
+        if (authState !== "unlocked") {
+            return;
+        }
+
         fetchStats();
 
         const intervalId = window.setInterval(() => {
@@ -61,7 +88,40 @@ export default function AdminPage() {
             document.removeEventListener("visibilitychange", handleVisibilityChange);
             window.removeEventListener("focus", handleFocus);
         };
-    }, []);
+    }, [authState]);
+
+    async function unlockAdmin() {
+        if (!passcode) {
+            setMessage("Enter passcode.");
+            return;
+        }
+
+        setIsUnlocking(true);
+        setMessage("Checking passcode...");
+        const res = await fetch("/api/admin/auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ passcode })
+        });
+
+        if (!res.ok) {
+            setMessage("Invalid passcode.");
+            setIsUnlocking(false);
+            return;
+        }
+
+        setAuthState("unlocked");
+        setPasscode("");
+        setMessage("Access granted.");
+        setIsUnlocking(false);
+    }
+
+    async function lockAdmin() {
+        await fetch("/api/admin/auth", { method: "DELETE" });
+        setAuthState("locked");
+        setStats(null);
+        setMessage("Dashboard locked.");
+    }
 
     async function updateTarget() {
         const previousStats = stats;
@@ -114,11 +174,54 @@ export default function AdminPage() {
         await fetchStats();
     }
 
+    if (authState === "checking") {
+        return (
+            <main className="main">
+                <div className="card">
+                    <h2>Admin Access</h2>
+                    <p className="small">Checking access...</p>
+                </div>
+            </main>
+        );
+    }
+
+    if (authState === "locked") {
+        return (
+            <main className="main">
+                <div className="topbar">
+                    <h1>Admin Dashboard</h1>
+                    <Link href="/">Go to Evaluator Page</Link>
+                </div>
+
+                <div className="card">
+                    <h2>Enter Admin Passcode</h2>
+                    <label htmlFor="passcode">Passcode</label>
+                    <input
+                        id="passcode"
+                        type="password"
+                        value={passcode}
+                        onChange={(e) => setPasscode(e.target.value)}
+                        placeholder="Enter admin passcode"
+                    />
+                    <div className="row" style={{ marginTop: 12 }}>
+                        <button className="true" onClick={unlockAdmin} disabled={isUnlocking}>
+                            {isUnlocking ? "Unlocking..." : "Unlock Dashboard"}
+                        </button>
+                    </div>
+                    {message ? <p className="small">{message}</p> : null}
+                </div>
+            </main>
+        );
+    }
+
     return (
         <main className="main">
             <div className="topbar">
                 <h1>Admin Dashboard</h1>
-                <a href="/">Go to Evaluator Page</a>
+                <div className="row" style={{ gap: 8 }}>
+                    <Link href="/">Go to Evaluator Page</Link>
+                    <button className="ghost" onClick={lockAdmin}>Lock</button>
+                </div>
             </div>
 
             <div className="card">

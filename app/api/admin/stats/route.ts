@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { readRuntime } from "@/lib/store";
+import { NextRequest } from "next/server";
+import { isAdminAuthorized, unauthorizedAdminResponse } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    if (!isAdminAuthorized(request)) {
+        return unauthorizedAdminResponse();
+    }
+
     const runtime = await readRuntime();
     const uniqueSessions = new Set(runtime.responses.map((response) => response.sessionId)).size;
 

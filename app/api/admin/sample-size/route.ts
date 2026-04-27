@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reseedSample } from "@/lib/store";
+import { isAdminAuthorized, unauthorizedAdminResponse } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
+    if (!isAdminAuthorized(request)) {
+        return unauthorizedAdminResponse();
+    }
+
     const body = await request.json();
     const targetSampleSize = Number(body?.targetSampleSize ?? 0);
 

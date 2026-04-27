@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type Item = {
     task_id: string;
@@ -93,9 +94,11 @@ export default function HomePage() {
     return (
         <main className="main">
             <div className="topbar">
-                <h1>Human Evaluation</h1>
-                <a href="/admin">Admin Dashboard</a>
+                <h1><Link href="/">Prediction Review Studio</Link></h1>
+                <Link href="/admin">Admin Dashboard</Link>
             </div>
+
+            <p className="small">Welcome. Review each prediction and choose True, False, or Unsure.</p>
 
             {loading && <p className="small">Loading...</p>}
             {message && <p className="small">{message}</p>}
@@ -110,31 +113,36 @@ export default function HomePage() {
             {item ? (
                 <div className="card">
                     <p className="small meta">Task {item.task_id} | {item.model} | {item.region} | {item.income_quintile}</p>
-                    <div className="image-container">
-                        <img
-                            className={`eval-image ${imageLoaded ? "is-loaded" : ""}`}
-                            src={item.image_url}
-                            alt={item.image_id}
-                            loading="lazy"
-                            onLoad={() => setImageLoaded(true)}
-                        />
-                    </div>
-                    <p><strong>Prediction:</strong> {item.predicted}</p>
+                    <div className="task-split">
+                        <div className="image-container">
+                            <img
+                                className={`eval-image ${imageLoaded ? "is-loaded" : ""}`}
+                                src={item.image_url}
+                                alt={item.image_id}
+                                loading="lazy"
+                                onLoad={() => setImageLoaded(true)}
+                            />
+                        </div>
 
-                    <label htmlFor="note">Optional note</label>
-                    <textarea
-                        id="note"
-                        rows={3}
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="Any context or ambiguity you noticed"
-                    />
+                        <div className="task-details">
+                            <p><strong>Prediction:</strong> {item.predicted}</p>
 
-                    <div className="row action-row">
-                        <button className="true" onClick={() => submit("true")}>True</button>
-                        <button className="false" onClick={() => submit("false")}>False</button>
-                        <button className="unsure" onClick={() => submit("unsure")}>Unsure / Ambiguous</button>
-                        <button className="ghost" onClick={skipCurrent}>Skip</button>
+                            <label htmlFor="note">Optional note</label>
+                            <textarea
+                                id="note"
+                                rows={3}
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                placeholder="Any context or ambiguity you noticed"
+                            />
+
+                            <div className="row action-row">
+                                <button className="true" onClick={() => submit("true")}>True</button>
+                                <button className="false" onClick={() => submit("false")}>False</button>
+                                <button className="unsure" onClick={() => submit("unsure")}>Unsure / Ambiguous</button>
+                                <button className="ghost" onClick={skipCurrent}>Skip</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : null}
