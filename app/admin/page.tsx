@@ -12,8 +12,12 @@ type Stats = {
 };
 
 export default function AdminPage() {
+    const POLL_INTERVAL_MS = 10000;
     const [stats, setStats] = useState<Stats | null>(null);
     const [target, setTarget] = useState(120);
+    const [targetInitialized, setTargetInitialized] = useState(false);
+    const [isEditingTarget, setIsEditingTarget] = useState(false);
+    const [isSavingTarget, setIsSavingTarget] = useState(false);
     const [message, setMessage] = useState("");
 
     async function fetchStats() {
@@ -24,22 +28,53 @@ export default function AdminPage() {
         }
         const data = await res.json();
         setStats(data);
-        setTarget(data.targetSampleSize);
+        if (!targetInitialized || !isEditingTarget) {
+            setTarget(data.targetSampleSize);
+            setTargetInitialized(true);
+        }
     }
 
     useEffect(() => {
         fetchStats();
 
         const intervalId = window.setInterval(() => {
+            if (document.visibilityState === "visible") {
+                fetchStats();
+            }
+        }, POLL_INTERVAL_MS);
+
+        function handleVisibilityChange() {
+            if (document.visibilityState === "visible") {
+                fetchStats();
+            }
+        }
+
+        function handleFocus() {
             fetchStats();
-        }, 3000);
+        }
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("focus", handleFocus);
 
         return () => {
             window.clearInterval(intervalId);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("focus", handleFocus);
         };
     }, []);
 
     async function updateTarget() {
+        const previousStats = stats;
+        setIsSavingTarget(true);
+        setMessage("Saving sample size...");
+
+        if (previousStats) {
+            setStats({
+                ...previousStats,
+                targetSampleSize: target
+            });
+        }
+
         const res = await fetch("/api/admin/sample-size", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -47,12 +82,36 @@ export default function AdminPage() {
         });
 
         if (!res.ok) {
+            if (previousStats) {
+                setStats(previousStats);
+            }
             setMessage("Failed to update sample size.");
+            setIsSavingTarget(false);
             return;
         }
 
+        const data = await res.json();
+
+        setStats((current) => {
+            if (!current) {
+                return current;
+            }
+
+            return {
+                ...current,
+                targetSampleSize: Number(data.targetSampleSize ?? current.targetSampleSize),
+                sampledTaskCount: Number(data.sampledTaskCount ?? current.sampledTaskCount),
+                remainingResponses: Math.max(
+                    Number(data.sampledTaskCount ?? current.sampledTaskCount) - current.completedResponses,
+                    0
+                )
+            };
+        });
+
         setMessage("Sample size updated.");
-        fetchStats();
+        setIsEditingTarget(false);
+        setIsSavingTarget(false);
+        await fetchStats();
     }
 
     return (
@@ -70,10 +129,20 @@ export default function AdminPage() {
                     type="number"
                     min={1}
                     value={target}
-                    onChange={(e) => setTarget(Number(e.target.value))}
+                    onFocus={() => setIsEditingTarget(true)}
+                    onBlur={() => setIsEditingTarget(false)}
+                    onChange={(e) => {
+                        setIsEditingTarget(true);
+                        setTarget(Number(e.target.value));
+                    }}
                 />
+                <p className="small" style={{ marginTop: 8 }}>
+                    Saved target: <strong>{stats?.targetSampleSize ?? "-"}</strong>
+                </p>
                 <div className="row" style={{ marginTop: 12 }}>
-                    <button className="true" onClick={updateTarget}>Apply</button>
+                    <button className="true" onClick={updateTarget} disabled={isSavingTarget}>
+                        {isSavingTarget ? "Applying..." : "Apply"}
+                    </button>
                 </div>
             </div>
 
