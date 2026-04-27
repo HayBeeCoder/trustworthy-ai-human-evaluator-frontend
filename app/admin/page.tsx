@@ -17,7 +17,11 @@ export default function AdminPage() {
     const [message, setMessage] = useState("");
 
     async function fetchStats() {
-        const res = await fetch("/api/admin/stats");
+        const res = await fetch("/api/admin/stats", { cache: "no-store" });
+        if (!res.ok) {
+            setMessage("Failed to fetch live stats.");
+            return;
+        }
         const data = await res.json();
         setStats(data);
         setTarget(data.targetSampleSize);
@@ -25,6 +29,14 @@ export default function AdminPage() {
 
     useEffect(() => {
         fetchStats();
+
+        const intervalId = window.setInterval(() => {
+            fetchStats();
+        }, 3000);
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
     }, []);
 
     async function updateTarget() {

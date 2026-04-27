@@ -50,8 +50,8 @@ const SUPABASE_SKIPPED_TABLE = process.env.SUPABASE_SKIPPED_TABLE || "eval_skipp
 const supabase: SupabaseClient | null =
     SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
         ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-              auth: { persistSession: false, autoRefreshToken: false }
-          })
+            auth: { persistSession: false, autoRefreshToken: false }
+        })
         : null;
 
 export function readItems(): EvalItem[] {
@@ -97,13 +97,35 @@ async function ensureRuntimeRow(client: SupabaseClient): Promise<{
         throw new Error(`Supabase runtime read failed: ${error.message}`);
     }
 
-    if (data) {
-        return data;
-    }
-
     const defaultIds = readItems()
         .slice(0, DEFAULT_SAMPLE_SIZE)
         .map((item) => item.task_id);
+
+    if (data) {
+        const existingIds = toStringArray(data.sampled_task_ids);
+        if (existingIds.length > 0) {
+            return data;
+        }
+
+        const seededTarget = Number(data.target_sample_size || DEFAULT_SAMPLE_SIZE);
+        const items = readItems();
+        const seededIds = items
+            .slice(0, Math.min(seededTarget, items.length))
+            .map((item) => item.task_id);
+
+        const { data: seeded, error: seedError } = await client
+            .from(SUPABASE_RUNTIME_TABLE)
+            .update({ sampled_task_ids: seededIds })
+            .eq("id", 1)
+            .select("target_sample_size,sampled_task_ids")
+            .single();
+
+        if (seedError) {
+            throw new Error(`Supabase runtime seed failed: ${seedError.message}`);
+        }
+
+        return seeded;
+    }
 
     const insertPayload = {
         id: 1,
