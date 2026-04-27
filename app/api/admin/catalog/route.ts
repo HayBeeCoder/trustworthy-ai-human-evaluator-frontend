@@ -11,6 +11,7 @@ type CatalogEntry = {
     region: string;
     incomeQuintile: string;
     predictions: Array<{
+        taskId: string;
         model: string;
         predicted: string;
     }>;
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
                 incomeQuintile: item.income_quintile || "unknown",
                 predictions: [
                     {
+                        taskId: item.task_id,
                         model: item.model,
                         predicted: item.predicted || ""
                     }
@@ -47,6 +49,7 @@ export async function GET(request: NextRequest) {
         const alreadyPresent = existing.predictions.some((prediction) => prediction.model === item.model);
         if (!alreadyPresent) {
             existing.predictions.push({
+                taskId: item.task_id,
                 model: item.model,
                 predicted: item.predicted || ""
             });

@@ -301,7 +301,16 @@ export async function nextTaskForSession(sessionId: string): Promise<EvalItem | 
         skipCountByTask.set(skipEntry.taskId, (skipCountByTask.get(skipEntry.taskId) || 0) + 1);
     }
 
-    // Prefer tasks with lower global workload: evaluations + weighted skips.
+    const chosenTaskId = chooseBestTaskId(eligibleTaskIds, evalCountByTask, skipCountByTask);
+
+    return items.find((item) => item.task_id === chosenTaskId) ?? null;
+}
+
+function chooseBestTaskId(
+    eligibleTaskIds: string[],
+    evalCountByTask: Map<string, number>,
+    skipCountByTask: Map<string, number>
+): string {
     let chosenTaskId = eligibleTaskIds[0];
     let bestScore =
         (evalCountByTask.get(chosenTaskId) || 0) +
@@ -317,7 +326,51 @@ export async function nextTaskForSession(sessionId: string): Promise<EvalItem | 
         }
     }
 
-    return items.find((item) => item.task_id === chosenTaskId) ?? null;
+    return chosenTaskId;
+}
+
+export async function nextTasksForSession(sessionId: string, count: number): Promise<EvalItem[]> {
+    const items = readItems();
+    const state = await readRuntime();
+    if (state.roundStatus !== "running") {
+        return [];
+    }
+
+    const safeCount = Math.max(1, Math.min(count, 24));
+    const completed = new Set(
+        state.responses.filter((r) => r.sessionId === sessionId).map((r) => r.taskId)
+    );
+    const skipped = new Set(
+        state.skipped.filter((r) => r.sessionId === sessionId).map((r) => r.taskId)
+    );
+    const reservedForBatch = new Set<string>();
+
+    const evalCountByTask = new Map<string, number>();
+    for (const response of state.responses) {
+        evalCountByTask.set(response.taskId, (evalCountByTask.get(response.taskId) || 0) + 1);
+    }
+
+    const skipCountByTask = new Map<string, number>();
+    for (const skipEntry of state.skipped) {
+        skipCountByTask.set(skipEntry.taskId, (skipCountByTask.get(skipEntry.taskId) || 0) + 1);
+    }
+
+    const chosenIds: string[] = [];
+    for (let i = 0; i < safeCount; i += 1) {
+        const eligibleTaskIds = state.sampledTaskIds.filter(
+            (id) => !completed.has(id) && !skipped.has(id) && !reservedForBatch.has(id)
+        );
+        if (eligibleTaskIds.length === 0) {
+            break;
+        }
+
+        const chosenTaskId = chooseBestTaskId(eligibleTaskIds, evalCountByTask, skipCountByTask);
+        reservedForBatch.add(chosenTaskId);
+        chosenIds.push(chosenTaskId);
+    }
+
+    const itemByTask = new Map(items.map((item) => [item.task_id, item]));
+    return chosenIds.map((taskId) => itemByTask.get(taskId)).filter((item): item is EvalItem => Boolean(item));
 }
 
 export async function submitTaskForSession(input: {

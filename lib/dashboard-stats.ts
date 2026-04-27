@@ -28,6 +28,13 @@ export type DashboardStats = {
         remaining: number;
         completionPct: number;
     }>;
+    qualityFillRates: Array<{
+        label: string;
+        sampled: number;
+        completed: number;
+        remaining: number;
+        completionPct: number;
+    }>;
     modelMetrics: Array<{
         model: string;
         sampled: number;
@@ -65,6 +72,20 @@ function uniqueSorted(values: string[]): string[] {
 function normalizeFilterValue(value?: string): string {
     const normalized = String(value || "all").trim();
     return normalized ? normalized : "all";
+}
+
+function qualityLabelForItem(item: { model_error_type?: string; ground_truth?: string; predicted?: string }): string {
+    const errorType = String(item.model_error_type || "").trim();
+    const normalizedErrorType = errorType.toLowerCase();
+    const normalizedPrediction = String(item.predicted || "").trim().toLowerCase();
+    const normalizedTruth = String(item.ground_truth || "").trim().toLowerCase();
+    const isCorrectByValue = normalizedPrediction !== "" && normalizedPrediction === normalizedTruth;
+
+    if (!errorType || normalizedErrorType === "none" || normalizedErrorType === "correct" || isCorrectByValue) {
+        return "Correct";
+    }
+
+    return errorType.replace(/_/g, " ");
 }
 
 export async function computeDashboardStats(filters: DashboardFilters = {}): Promise<DashboardStats> {
@@ -109,12 +130,14 @@ export async function computeDashboardStats(filters: DashboardFilters = {}): Pro
 
     const regionMap = new Map<string, { sampled: number; completed: number }>();
     const quintileMap = new Map<string, { sampled: number; completed: number }>();
+    const qualityMap = new Map<string, { sampled: number; completed: number }>();
     const queueMap = new Map<string, { region: string; quintile: string; sampled: number; completed: number }>();
 
     for (const item of filteredSampledItems) {
         const completed = completedTaskIds.has(item.task_id) ? 1 : 0;
         const region = item.region || "unknown";
         const quintile = item.income_quintile || "unknown";
+        const qualityLabel = qualityLabelForItem(item);
 
         const regionStats = regionMap.get(region) || { sampled: 0, completed: 0 };
         regionStats.sampled += 1;
@@ -125,6 +148,11 @@ export async function computeDashboardStats(filters: DashboardFilters = {}): Pro
         quintileStats.sampled += 1;
         quintileStats.completed += completed;
         quintileMap.set(quintile, quintileStats);
+
+        const qualityStats = qualityMap.get(qualityLabel) || { sampled: 0, completed: 0 };
+        qualityStats.sampled += 1;
+        qualityStats.completed += completed;
+        qualityMap.set(qualityLabel, qualityStats);
 
         const key = `${region}__${quintile}`;
         const queueStats = queueMap.get(key) || { region, quintile, sampled: 0, completed: 0 };
@@ -152,6 +180,16 @@ export async function computeDashboardStats(filters: DashboardFilters = {}): Pro
             completionPct: stats.sampled > 0 ? Math.round((stats.completed / stats.sampled) * 100) : 0
         }))
         .sort((a, b) => a.quintile.localeCompare(b.quintile));
+
+    const qualityFillRates = Array.from(qualityMap.entries())
+        .map(([label, stats]) => ({
+            label,
+            sampled: stats.sampled,
+            completed: stats.completed,
+            remaining: Math.max(stats.sampled - stats.completed, 0),
+            completionPct: stats.sampled > 0 ? Math.round((stats.completed / stats.sampled) * 100) : 0
+        }))
+        .sort((a, b) => b.remaining - a.remaining || a.label.localeCompare(b.label));
 
     const itemsByTaskId = new Map(filteredSampledItems.map((item) => [item.task_id, item]));
     const modelSampledMap = new Map<string, { sampled: number; completedTaskIds: Set<string> }>();
@@ -220,6 +258,7 @@ export async function computeDashboardStats(filters: DashboardFilters = {}): Pro
         remainingResponses: Math.max(filteredSampledItems.length - filteredResponses.length, 0),
         regionFillRates,
         quintileFillRates,
+        qualityFillRates,
         modelMetrics,
         queueHealth,
         filterOptions,

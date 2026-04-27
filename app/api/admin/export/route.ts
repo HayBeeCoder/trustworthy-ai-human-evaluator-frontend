@@ -44,6 +44,11 @@ export async function GET(request: NextRequest) {
             ["quintile", "sampled", "completed", "remaining", "completion_pct"],
             stats.quintileFillRates.map((row) => [row.quintile, row.sampled, row.completed, row.remaining, row.completionPct])
         );
+    } else if (table === "quality") {
+        csv = rowsToCsv(
+            ["label", "sampled", "completed", "remaining", "completion_pct"],
+            stats.qualityFillRates.map((row) => [row.label, row.sampled, row.completed, row.remaining, row.completionPct])
+        );
     } else if (table === "model") {
         csv = rowsToCsv(
             ["model", "sampled", "completed_tasks", "remaining_tasks", "true_count", "false_count", "unsure_count", "agreement_pct"],
