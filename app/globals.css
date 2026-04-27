@@ -210,6 +210,7 @@ img {
 }
 
 input,
+select,
 textarea {
     width: 100%;
     border-radius: 10px;
@@ -220,6 +221,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
     outline: 2px solid rgba(12, 122, 89, 0.25);
     outline-offset: 1px;
@@ -237,6 +239,126 @@ textarea:focus {
 
 .action-row {
     margin-top: 12px;
+}
+
+.metric-list {
+    display: grid;
+    gap: 12px;
+}
+
+.metric-row {
+    border: 1px solid #d9d1c2;
+    border-radius: 10px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.45);
+}
+
+.metric-row-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(20, 24, 28, 0.08);
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.progress-bar > div {
+    height: 100%;
+    background: linear-gradient(90deg, #0c7a59 0%, #30a172 100%);
+    border-radius: 999px;
+}
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 640px;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+    text-align: left;
+    border-bottom: 1px solid #ddd6c7;
+    padding: 8px 6px;
+    font-size: 13px;
+}
+
+.dashboard-table th {
+    color: #3b454d;
+    font-weight: 700;
+}
+
+.tab-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.tab-chip {
+    padding: 7px 12px !important;
+    margin-top: 0 !important;
+    font-size: 13px;
+}
+
+.tab-chip.is-active {
+    border-color: #79a893;
+    background: rgba(12, 122, 89, 0.14);
+    color: #114738;
+}
+
+.tab-description {
+    margin-top: 10px;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.admin-control-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.dashboard-panels-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+}
+
+.catalog-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+.catalog-image-wrap {
+    border: 1px solid #d9d1c2;
+    border-radius: 12px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.45);
+}
+
+.catalog-image-wrap img {
+    width: 100%;
+    max-height: min(56vh, 520px);
+    object-fit: contain;
+    margin-bottom: 8px;
 }
 
 .app-footer {
@@ -299,15 +421,88 @@ textarea:focus {
     .action-row button {
         width: 100%;
     }
+
+    .tab-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (min-width: 900px) {
+    .main {
+        max-width: 1180px;
+    }
+
+    .action-row button{
+        padding-left: 105px;
+        padding-right: 105px ;
+        padding-top: 15px;
+        padding-bottom: 15px;
+        margin-top: 10px;
+    }
+
+    .tab-chip {
+        padding: 7px 12px !important;
+        margin-top: 0 !important;
+    }
+
     .card {
-        max-width: 920px;
+        max-width: 1100px;
+        padding: 16px;
+        border-radius: 14px;
+    }
+
+    .admin-control-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+
+    .admin-control-grid .card {
+        margin: 0;
+        max-width: none;
+        height: 100%;
+    }
+
+    .card-tabs {
+        grid-column: 1 / -1;
+    }
+
+    .card-filters {
+        grid-column: 1 / -1;
+    }
+
+    .dashboard-panels-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+
+    .catalog-split {
+        grid-template-columns: minmax(420px, 1.2fr) minmax(320px, 0.8fr);
+        align-items: start;
+    }
+
+    .dashboard-panels-grid .card {
+        margin-top: 12px !important;
+    }
+
+    .dashboard-table {
+        min-width: 520px;
+    }
+
+    .table-wrap {
+        max-height: 360px;
+        overflow: auto;
     }
 
     .task-split {
-        grid-template-columns: minmax(360px, 1.2fr) minmax(260px, 0.8fr);
+        grid-template-columns: minmax(360px, 1.2fr) minmax(360px, 0.8fr);
         align-items: start;
         gap: 20px;
     }

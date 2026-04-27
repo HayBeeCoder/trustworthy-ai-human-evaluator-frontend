@@ -34,12 +34,21 @@ export type RuntimeState = {
     sampledTaskIds: string[];
     responses: EvalResponse[];
     skipped: EvalSkip[];
+    roundStatus: "running" | "stopped";
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const ITEMS_PATH = path.join(DATA_DIR, "items.json");
 const RUNTIME_PATH = path.join(DATA_DIR, "runtime.json");
 const DEFAULT_SAMPLE_SIZE = 120;
+const ROUND_STOPPED_SENTINEL = "__ROUND_STOPPED__";
+const SKIP_WEIGHT = (() => {
+    const raw = Number(process.env.SKIP_WEIGHT ?? "0.5");
+    if (!Number.isFinite(raw) || raw < 0) {
+        return 0.5;
+    }
+    return raw;
+})();
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -59,11 +68,23 @@ export function readItems(): EvalItem[] {
 }
 
 function normalizeRuntime(parsed: Partial<RuntimeState>): RuntimeState {
+    const rawIds = Array.isArray(parsed.sampledTaskIds)
+        ? parsed.sampledTaskIds.map((id) => String(id))
+        : [];
+    const sentinelStopped = rawIds.includes(ROUND_STOPPED_SENTINEL);
+    const sampledIds = rawIds.filter((id) => id !== ROUND_STOPPED_SENTINEL);
+
     return {
         targetSampleSize: Number(parsed.targetSampleSize ?? 0),
-        sampledTaskIds: Array.isArray(parsed.sampledTaskIds) ? parsed.sampledTaskIds : [],
+        sampledTaskIds: sampledIds,
         responses: Array.isArray(parsed.responses) ? parsed.responses : [],
-        skipped: Array.isArray(parsed.skipped) ? parsed.skipped : []
+        skipped: Array.isArray(parsed.skipped) ? parsed.skipped : [],
+        roundStatus:
+            parsed.roundStatus === "running" || parsed.roundStatus === "stopped"
+                ? parsed.roundStatus
+                : sentinelStopped
+                    ? "stopped"
+                    : "running"
     };
 }
 
@@ -74,13 +95,37 @@ function toStringArray(value: unknown): string[] {
     return value.map((item) => String(item));
 }
 
+function toRuntimeSampledIds(ids: string[], roundStatus: "running" | "stopped"): string[] {
+    const cleanIds = ids.filter((id) => id !== ROUND_STOPPED_SENTINEL);
+    if (roundStatus === "stopped") {
+        return [...cleanIds, ROUND_STOPPED_SENTINEL];
+    }
+    return cleanIds;
+}
+
 function readRuntimeLocal(): RuntimeState {
     const parsed = JSON.parse(fs.readFileSync(RUNTIME_PATH, "utf-8")) as Partial<RuntimeState>;
     return normalizeRuntime(parsed);
 }
 
 function writeRuntimeLocal(state: RuntimeState): void {
-    fs.writeFileSync(RUNTIME_PATH, JSON.stringify(state, null, 2), "utf-8");
+    const sampledTaskIds =
+        state.roundStatus === "stopped"
+            ? [...state.sampledTaskIds, ROUND_STOPPED_SENTINEL]
+            : [...state.sampledTaskIds];
+
+    fs.writeFileSync(
+        RUNTIME_PATH,
+        JSON.stringify(
+            {
+                ...state,
+                sampledTaskIds
+            },
+            null,
+            2
+        ),
+        "utf-8"
+    );
 }
 
 async function ensureRuntimeRow(client: SupabaseClient): Promise<{
@@ -169,7 +214,7 @@ export async function readRuntime(): Promise<RuntimeState> {
 
     return {
         targetSampleSize: Number(runtimeRow.target_sample_size ?? 0),
-        sampledTaskIds: toStringArray(runtimeRow.sampled_task_ids),
+        sampledTaskIds: toStringArray(runtimeRow.sampled_task_ids).filter((id) => id !== ROUND_STOPPED_SENTINEL),
         responses: (responses || []).map((row) => ({
             taskId: String(row.task_id),
             sessionId: String(row.session_id),
@@ -181,7 +226,10 @@ export async function readRuntime(): Promise<RuntimeState> {
             taskId: String(row.task_id),
             sessionId: String(row.session_id),
             createdAt: String(row.created_at)
-        }))
+        })),
+        roundStatus: toStringArray(runtimeRow.sampled_task_ids).includes(ROUND_STOPPED_SENTINEL)
+            ? "stopped"
+            : "running"
     };
 }
 
@@ -196,6 +244,7 @@ export async function reseedSample(targetSampleSize: number): Promise<RuntimeSta
         state.sampledTaskIds = Array.from(chosenSet);
         state.responses = state.responses.filter((resp) => chosenSet.has(resp.taskId));
         state.skipped = state.skipped.filter((skip) => chosenSet.has(skip.taskId));
+        state.roundStatus = "running";
 
         writeRuntimeLocal(state);
         return state;
@@ -211,7 +260,7 @@ export async function reseedSample(targetSampleSize: number): Promise<RuntimeSta
             {
                 id: 1,
                 target_sample_size: targetSampleSize,
-                sampled_task_ids: chosenIds
+                sampled_task_ids: toRuntimeSampledIds(chosenIds, "running")
             },
             { onConflict: "id" }
         );
@@ -226,6 +275,10 @@ export async function nextTaskForSession(sessionId: string): Promise<EvalItem | 
     const items = readItems();
     const state = await readRuntime();
 
+    if (state.roundStatus !== "running") {
+        return null;
+    }
+
     const completed = new Set(
         state.responses.filter((r) => r.sessionId === sessionId).map((r) => r.taskId)
     );
@@ -233,13 +286,38 @@ export async function nextTaskForSession(sessionId: string): Promise<EvalItem | 
         state.skipped.filter((r) => r.sessionId === sessionId).map((r) => r.taskId)
     );
 
-    const remaining = state.sampledTaskIds.filter((id) => !completed.has(id) && !skipped.has(id));
-    if (remaining.length === 0) {
+    const eligibleTaskIds = state.sampledTaskIds.filter((id) => !completed.has(id) && !skipped.has(id));
+    if (eligibleTaskIds.length === 0) {
         return null;
     }
 
-    const taskId = remaining[0];
-    return items.find((item) => item.task_id === taskId) ?? null;
+    const evalCountByTask = new Map<string, number>();
+    for (const response of state.responses) {
+        evalCountByTask.set(response.taskId, (evalCountByTask.get(response.taskId) || 0) + 1);
+    }
+
+    const skipCountByTask = new Map<string, number>();
+    for (const skipEntry of state.skipped) {
+        skipCountByTask.set(skipEntry.taskId, (skipCountByTask.get(skipEntry.taskId) || 0) + 1);
+    }
+
+    // Prefer tasks with lower global workload: evaluations + weighted skips.
+    let chosenTaskId = eligibleTaskIds[0];
+    let bestScore =
+        (evalCountByTask.get(chosenTaskId) || 0) +
+        (skipCountByTask.get(chosenTaskId) || 0) * SKIP_WEIGHT;
+
+    for (const taskId of eligibleTaskIds) {
+        const score =
+            (evalCountByTask.get(taskId) || 0) +
+            (skipCountByTask.get(taskId) || 0) * SKIP_WEIGHT;
+        if (score < bestScore) {
+            chosenTaskId = taskId;
+            bestScore = score;
+        }
+    }
+
+    return items.find((item) => item.task_id === chosenTaskId) ?? null;
 }
 
 export async function submitTaskForSession(input: {
@@ -327,4 +405,25 @@ export async function skipTaskForSession(sessionId: string, taskId: string): Pro
     }
 
     return { ok: true };
+}
+
+export async function setRoundStatus(status: "running" | "stopped"): Promise<RuntimeState> {
+    if (!supabase) {
+        const state = readRuntimeLocal();
+        state.roundStatus = status;
+        writeRuntimeLocal(state);
+        return state;
+    }
+
+    const runtime = await readRuntime();
+    const { error } = await supabase
+        .from(SUPABASE_RUNTIME_TABLE)
+        .update({ sampled_task_ids: toRuntimeSampledIds(runtime.sampledTaskIds, status) })
+        .eq("id", 1);
+
+    if (error) {
+        throw new Error(`Supabase round status update failed: ${error.message}`);
+    }
+
+    return readRuntime();
 }
