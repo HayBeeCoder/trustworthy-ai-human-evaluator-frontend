@@ -69,8 +69,13 @@ type CatalogEntry = {
     incomeQuintile: string;
     predictions: Array<{
         taskId: string;
+        sourceEntryId: string;
+        sourceFile: string;
+        sourceRowNumber: number;
         model: string;
         predicted: string;
+        groundTruth: string;
+        errorType: string;
     }>;
 };
 
@@ -1062,7 +1067,9 @@ export default function AdminPage() {
                                                             <span className="catalog-direct-model">{prediction.model}</span>
                                                             <span className="small">{savedVerdict ? `Saved: ${savedVerdict}` : "Not evaluated"}</span>
                                                         </div>
+                                                        <p className="small">Source: {prediction.sourceFile} row {prediction.sourceRowNumber}</p>
                                                         <p className="small"><strong>Prediction:</strong> {prediction.predicted || "-"}</p>
+                                                        <p className="small">Ground truth: {prediction.groundTruth || "-"} | Error type: {prediction.errorType || "-"}</p>
                                                         <div className="catalog-eval-actions">
                                                             <button
                                                                 className={`true catalog-eval-btn ${savedVerdict === "true" ? "is-selected" : ""}`}

@@ -13,6 +13,20 @@ export type EvalItem = {
     ground_truth: string;
     predicted: string;
     model_error_type: string;
+    source_entry_id: string;
+    source_file: string;
+    source_row_number: number;
+    error_type: string;
+    sem_similarity: number | null;
+    ctx_similarity: number | null;
+    confidence: number | null;
+    raw_response: string;
+    trace?: {
+        source_file: string;
+        source_row_number: number;
+        source_entry_id: string;
+        row: Record<string, string>;
+    };
 };
 
 export type EvalResponse = {
@@ -55,10 +69,12 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_RUNTIME_TABLE = process.env.SUPABASE_RUNTIME_TABLE || "eval_runtime";
 const SUPABASE_RESPONSES_TABLE = process.env.SUPABASE_RESPONSES_TABLE || "eval_responses";
 const SUPABASE_SKIPPED_TABLE = process.env.SUPABASE_SKIPPED_TABLE || "eval_skipped";
+const BACKEND_MODE = process.env.EVAL_BACKEND || (process.env.NODE_ENV === "production" ? "supabase" : "local");
+const USE_SUPABASE_BACKEND = BACKEND_MODE === "supabase" && Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 
 const supabase: SupabaseClient | null =
-    SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
-        ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    USE_SUPABASE_BACKEND
+        ? createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
             auth: { persistSession: false, autoRefreshToken: false }
         })
         : null;

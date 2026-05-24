@@ -5,12 +5,21 @@ import Link from "next/link";
 
 type Item = {
     task_id: string;
+    source_entry_id: string;
+    source_file: string;
+    source_row_number: number;
     image_id: string;
     image_url: string;
     model: string;
     region: string;
     income_quintile: string;
+    ground_truth: string;
     predicted: string;
+    error_type: string;
+    sem_similarity: number | null;
+    ctx_similarity: number | null;
+    confidence: number | null;
+    raw_response: string;
 };
 
 function getSessionId(): string {
@@ -254,9 +263,12 @@ export default function HomePage() {
                 >
                     {items.map((item) => (
                         <div key={item.task_id} className="card evaluator-grid-card">
-                            {/* <p className="small meta">
+                            <p className="small meta">
                                 Task {item.task_id} | {item.model} | {item.region} | {item.income_quintile}
-                            </p> */}
+                            </p>
+                            <p className="small meta">
+                                Source {item.source_file} row {item.source_row_number} | Entry {item.source_entry_id}
+                            </p>
                             <div className="image-container evaluator-grid-image-container">
                                 <img
                                     src={item.image_url}
@@ -271,6 +283,9 @@ export default function HomePage() {
                                 </p>
                                 <p className="prediction-line">
                                     <strong>Prediction:</strong> <span className="prediction-value">{item.predicted}</span>
+                                </p>
+                                <p className="small meta">
+                                    Ground truth: {item.ground_truth} | Error type: {item.error_type || "-"}
                                 </p>
 
                                 {/* <label htmlFor={`note-${item.task_id}`}>Optional note</label>

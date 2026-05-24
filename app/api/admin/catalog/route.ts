@@ -12,8 +12,13 @@ type CatalogEntry = {
     incomeQuintile: string;
     predictions: Array<{
         taskId: string;
+        sourceEntryId: string;
+        sourceFile: string;
+        sourceRowNumber: number;
         model: string;
         predicted: string;
+        groundTruth: string;
+        errorType: string;
     }>;
 };
 
@@ -38,8 +43,13 @@ export async function GET(request: NextRequest) {
                 predictions: [
                     {
                         taskId: item.task_id,
+                        sourceEntryId: item.source_entry_id,
+                        sourceFile: item.source_file,
+                        sourceRowNumber: item.source_row_number,
                         model: item.model,
-                        predicted: item.predicted || ""
+                        predicted: item.predicted || "",
+                        groundTruth: item.ground_truth || "",
+                        errorType: item.error_type || ""
                     }
                 ]
             });
@@ -50,8 +60,13 @@ export async function GET(request: NextRequest) {
         if (!alreadyPresent) {
             existing.predictions.push({
                 taskId: item.task_id,
+                sourceEntryId: item.source_entry_id,
+                sourceFile: item.source_file,
+                sourceRowNumber: item.source_row_number,
                 model: item.model,
-                predicted: item.predicted || ""
+                predicted: item.predicted || "",
+                groundTruth: item.ground_truth || "",
+                errorType: item.error_type || ""
             });
         }
     }

@@ -1206,7 +1206,7 @@ gemini,5d4bf04ccf0b3a0f3f354b48,af,Q1,ceiling,corrugated metal structure interio
 gemini,5d4bebc7cf0b3a0f3f34cdbf,am,Q3,toilet,toilet,correct,1.0,0.7287,,toilet
 gemini,5d4bf335cf0b3a0f3f359ac2,af,Q1,floor,dirt ground,correct,0.4749,0.597,,Dirt ground
 gemini,5d4be196cf0b3a0f3f33b4bf,am,Q3,light source in livingroom,ceiling light with star stickers,misclassification,0.36,0.5889,,Ceiling light with star stickers
-gemini,5d4bf0e5cf0b3a0f3f355af2,af,Q1,family,group of people,misclassification,0.4332,0.5715,,Group of people
+gemini,5d4bf0e5cf0b3a0f3f355af2,af,Q1,family,group of people,misclassification,0.4332,0.5715,,
 gemini,5d4be817cf0b3a0f3f34695d,as,Q5,drinking water,water dispenser,correct,0.4569,0.6338,,Water dispenser
 gemini,5d4bdfb3cf0b3a0f3f3380c5,eu,Q4,idols,music cd,misclassification,0.1758,0.5154,,music CD
 gemini,5d4be413cf0b3a0f3f33f756,eu,Q4,fruit trees,backyard,misclassification,0.2722,0.5032,,Backyard

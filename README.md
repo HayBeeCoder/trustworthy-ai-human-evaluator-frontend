@@ -27,6 +27,8 @@ Generated files:
 
 Node version: use Node 20 or 22 (`frontend/.nvmrc` is set to `22`).
 
+Local development uses file-backed simulation by default, even if Supabase variables are present in `.env`. If you want to force remote persistence locally, set `EVAL_BACKEND=supabase`.
+
 ```bash
 cd frontend
 nvm use || nvm install
