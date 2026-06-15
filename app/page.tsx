@@ -208,6 +208,11 @@ export default function HomePage() {
                         <option value={2}>2</option>
                         <option value={4}>4</option>
                         <option value={6}>6</option>
+                        <option value={12}>12</option>
+                        <option value={24}>24</option>
+                        <option value={48}>48</option>
+                        <option value={96}>96</option>
+                        <option value={192}>192</option>
                     </select>
                 </div>
                 <div>
