@@ -1,5 +1,5 @@
 {
-  "targetSampleSize": 4192,
+  "targetSampleSize": 5000,
   "sampledTaskIds": [
     "clip_vitb32_predictions_non_correct.csv#00001",
     "clip_vitb32_predictions_non_correct.csv#00002",
